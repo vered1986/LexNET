@@ -3,7 +3,7 @@
 This is the code used in the paper:
 
 <b>"The Roles of Path-based and Distributional Information in Recognizing Lexical Semantic Relations"</b><br/>
-Vered Shwartz and Ido Dagan. (link - TBD)
+Vered Shwartz and Ido Dagan. 2016. [link](http://arxiv.org/abs/1608.05014)
 
 It is used to classify semantic relations between term-pairs, using disributional information on each term, and path-based information, encoded using an LSTM.
 
@@ -52,4 +52,4 @@ In addition, we experimented with a combined dataset, which is also available in
 In our paper we use the English Wikipedia dump from May 2015 as the corpus. We computed the paths between the most frequent unigrams, bigrams and trigrams in Wikipedia (based on [GloVe](http://nlp.stanford.edu/data/glove.6B.zip) vocabulary and the most frequent 100k bigrams and trigrams). Rather than re-creating the corpus, if you'd like to use the same corpus, the files for the Wiki corpus are available [here](https://drive.google.com/folderview?id=0B0kBcFEBhcbhdXBTOVRRbThOVDg&usp=sharing).
 
 <b>Pretrained Models:</b>
-Since the datasets we used in this work differ from each other, we recommend training the model rather than using pretrained models. If you prefer using our pretrained models, they are available [here](https://drive.google.com/folderview?id=0B0kBcFEBhcbhQ3h6VDV2NFQ0SGc&usp=sharing). (Incomplete)
+Since the datasets we used in this work differ from each other, we recommend training the model rather than using pretrained models. If you prefer using our pretrained models, some pretrained models are available [here](https://drive.google.com/folderview?id=0B0kBcFEBhcbhQ3h6VDV2NFQ0SGc&usp=sharing).
