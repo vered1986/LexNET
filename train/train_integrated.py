@@ -139,7 +139,10 @@ def get_vocabulary(corpus, dataset_keys):
     :return: a set of distinct words appearing as x or y or in a path
     """
     keys = [(corpus.get_id_by_term(str(x)), corpus.get_id_by_term(str(y))) for (x, y) in dataset_keys]
-    path_lemmas = set([path.split('/')[0] for (x_id, y_id) in keys for path in get_paths(corpus, x_id, y_id).keys()])
+    path_lemmas = set([edge.split('/')[0]
+                       for (x_id, y_id) in keys
+                       for path in get_paths(corpus, x_id, y_id).keys()
+                       for edge in path.split('_')])
     x_y_words = set([x for (x, y) in dataset_keys]).union([y for (x, y) in dataset_keys])
     return list(path_lemmas.union(x_y_words))
 
