@@ -1,7 +1,7 @@
 import codecs
 
-from spacy.en import English
 from docopt import docopt
+from spacy.en import English
 from collections import defaultdict
 
 
