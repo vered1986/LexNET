@@ -5,7 +5,12 @@
 If you use **LexNET** for any published research, please include the following citation:
 
 <b>"Path-based vs. Distributional Information in Recognizing Lexical Semantic Relations"</b><br/>
-Vered Shwartz and Ido Dagan. arXiv 2016. [link](http://arxiv.org/abs/1608.05014)
+Vered Shwartz and Ido Dagan. Proceedings of the 5th Workshop on Cognitive Aspects of the Lexicon (CogALex-V), in COLING 2016. [link](http://arxiv.org/abs/1608.05014)
+
+**LexNET** participated in the CogALex-V Shared Task on the Corpus-Based Identification of Semantic Relations, and achieved the best performance among the competitors on subtask 2 (semantic relation classification). The following paper describes the submission:
+
+<b>"CogALex-V Shared Task: LexNET - Integrated Path-based and Distributional Method for the Identification of Semantic Relations"</b><br/>
+Vered Shwartz and Ido Dagan. Proceedings of the 5th Workshop on Cognitive Aspects of the Lexicon (CogALex-V), in COLING 2016. [link](https://arxiv.org/abs/1610.08694)
 
 ***
 
