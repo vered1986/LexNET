@@ -74,7 +74,7 @@ def load_embeddings(file_name, vocabulary):
     unknown_words = list(set(vocabulary).difference(set(words)))
 
     # Create vectors for MWEs - sum of word embeddings, and OOV words
-    unknown_word_vectors = [np.add.reduce([vectors[words.index(w)] if w in word_set else unknown_vector
+    unknown_word_vectors = [np.add.reduce([wv[words.index(w)] if w in word_set else unknown_vector
                                            for w in word.split(' ')])
                             for word in unknown_words]
 
