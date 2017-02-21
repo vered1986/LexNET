@@ -5,6 +5,8 @@ sys.argv.insert(3, '--cnn-seed')
 sys.argv.insert(4, '3016748844')
 sys.path.append('../common/')
 
+sys.path.append('../common')
+
 from evaluation_common import *
 from paths_lstm_classifier import *
 from knowledge_resource import KnowledgeResource

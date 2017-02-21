@@ -3,6 +3,7 @@ sys.argv.insert(1, '--cnn-mem')
 sys.argv.insert(2, '8192')
 sys.argv.insert(3, '--cnn-seed')
 sys.argv.insert(4, '3016748844')
+
 sys.path.append('../common/')
 
 from evaluation_common import *
