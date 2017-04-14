@@ -15,3 +15,20 @@ Vered Shwartz and Ido Dagan. Proceedings of the 5th Workshop on Cognitive Aspect
 ***
 
 To start using **LexNET**, read the [Quick Start](https://github.com/vered1986/LexNET/wiki/Quick-Start) or the [Detailed Guide](https://github.com/vered1986/LexNET/wiki/Detailed-Guide).
+
+***
+
+## Version 2:
+
+### Major features and improvements:
+* Using dynet instead of pycnn
+* Making the resource creation time and memory efficient
+
+### Bug fixes:
+* Too many paths in parse_wikipedia (see issue [#2](https://github.com/vered1986/HypeNET/issues/2))
+
+### Notes:
+* To reproduce the results reported in the paper, please use [V1](https://github.com/vered1986/LexNET/tree/master).
+* The pre-processed corpus files are currently only available for V1. I'm trying to find space to store the V2 files, and I will make them available soon.
+
+***
