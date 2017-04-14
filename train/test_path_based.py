@@ -1,8 +1,10 @@
 import sys
-sys.argv.insert(1, '--cnn-mem')
-sys.argv.insert(2, '8192')
-sys.argv.insert(3, '--cnn-seed')
-sys.argv.insert(4, '3016748844')
+sys.argv.insert(1, '--dynet-gpus')
+sys.argv.insert(2, '1')
+sys.argv.insert(3, '--dynet-mem')
+sys.argv.insert(4, '8192')
+sys.argv.insert(5, '--dynet-seed')
+sys.argv.insert(6, '3016748844') # Change to any seed you'd like
 
 sys.path.append('../common/')
 
@@ -16,9 +18,9 @@ EMBEDDINGS_DIM = 50
 def main():
 
     # The LSTM-based path-based method for multiclass semantic relations classification
-    corpus_prefix = sys.argv[5]
-    dataset_prefix = sys.argv[6]
-    model_file_prefix = sys.argv[7]
+    corpus_prefix = sys.argv[7]
+    dataset_prefix = sys.argv[8]
+    model_file_prefix = sys.argv[9]
 
     # Load the relations
     with codecs.open(dataset_prefix + '/relations.txt', 'r', 'utf-8') as f_in:

@@ -1,8 +1,8 @@
 import math
 import json
 
-import pycnn
-from pycnn import *
+import _dynet
+from _dynet import *
 
 from lstm_common import *
 from sklearn.base import BaseEstimator
@@ -57,10 +57,11 @@ class PathLSTMClassifier(BaseEstimator):
 
         # Create the network
         print 'Creating the network...'
-        self.builder, self.model = create_computation_graph(self.num_lemmas, self.num_pos, self.num_dep,
-                                                            self.num_directions, self.num_relations, self.lemma_vectors,
-                                                            use_xy_embeddings, self.num_hidden_layers,
-                                                            self.lemma_embeddings_dim)
+        self.builder, self.model, self.model_parameters = create_computation_graph(self.num_lemmas, self.num_pos,
+                                                                                   self.num_dep, self.num_directions,
+                                                                                   self.num_relations, self.lemma_vectors,
+                                                                                   use_xy_embeddings, self.num_hidden_layers,
+                                                                                   self.lemma_embeddings_dim)
         print 'Done!'
 
     def fit(self, X_train, y_train, x_y_vectors=None):
@@ -68,7 +69,7 @@ class PathLSTMClassifier(BaseEstimator):
         Train the model
         '''
         print 'Training the model...'
-        train(self.builder, self.model, X_train, y_train, self.n_epochs, self.alpha, self.update,
+        train(self.builder, self.model, self.model_parameters, X_train, y_train, self.n_epochs, self.alpha, self.update,
               self.dropout, x_y_vectors, self.num_hidden_layers)
         print 'Done!'
 
@@ -80,7 +81,7 @@ class PathLSTMClassifier(BaseEstimator):
 
         # Save the model parameter shapes
         lookups = ['lemma_lookup', 'pos_lookup', 'dep_lookup', 'dir_lookup']
-        params = { param_name : self.model[param_name].shape() for param_name in lookups }
+        params = { param_name : self.model_parameters[param_name].shape() for param_name in lookups }
         params['num_relations'] = self.num_relations
         params['use_xy_embeddings'] = self.use_xy_embeddings
         params['num_hidden_layers'] = self.num_hidden_layers
@@ -97,6 +98,7 @@ class PathLSTMClassifier(BaseEstimator):
         Predict the classification of the test set
         '''
         model = self.model
+        model_parameters = self.model_parameters
         builder = self.builder
         test_pred = []
 
@@ -105,7 +107,7 @@ class PathLSTMClassifier(BaseEstimator):
             renew_cg()
             path_cache = {}
             test_pred.extend([np.argmax(process_one_instance(
-                builder, model, path_set, path_cache, False, dropout=0.0,
+                builder, model, model_parameters, path_set, path_cache, False, dropout=0.0,
                 x_y_vectors=x_y_vectors[chunk + i] if x_y_vectors is not None else None,
                 num_hidden_layers=self.num_hidden_layers).npvalue())
                               for i, path_set in enumerate(X_test[chunk:chunk+100])])
@@ -133,12 +135,13 @@ class PathLSTMClassifier(BaseEstimator):
         '''
         Get the top k scoring paths
         '''
-        lemma_lookup = self.model['lemma_lookup']
-        pos_lookup = self.model['pos_lookup']
-        dep_lookup = self.model['dep_lookup']
-        dir_lookup = self.model['dir_lookup']
         builder = self.builder
         model = self.model
+        model_parameters = self.model_parameters
+        lemma_lookup = model_parameters['lemma_lookup']
+        pos_lookup = model_parameters['pos_lookup']
+        dep_lookup = model_parameters['dep_lookup']
+        dir_lookup = model_parameters['dir_lookup']
 
         path_scores = []
 
@@ -146,19 +149,19 @@ class PathLSTMClassifier(BaseEstimator):
 
             if i % 1000 == 0:
                 cg = renew_cg()
-                W1 = parameter(model['W1'])
-                b1 = parameter(model['b1'])
+                W1 = parameter(model_parameters['W1'])
+                b1 = parameter(model_parameters['b1'])
                 W2 = None
                 b2 = None
 
                 if self.num_hidden_layers == 1:
-                    W2 = parameter(model['W2'])
-                    b2 = parameter(model['b2'])
+                    W2 = parameter(model_parameters['W2'])
+                    b2 = parameter(model_parameters['b2'])
 
             path_embedding = get_path_embedding(builder, lemma_lookup, pos_lookup, dep_lookup, dir_lookup, path)
 
             if self.use_xy_embeddings:
-                zero_word = pycnn._vecInputExpression(cg, [0.0] * self.lemma_embeddings_dim)
+                zero_word = _dynet.inputVector([0.0] * self.lemma_embeddings_dim)
                 path_embedding = concatenate([zero_word, path_embedding, zero_word])
 
             h = W1 * path_embedding + b1
@@ -180,12 +183,13 @@ class PathLSTMClassifier(BaseEstimator):
         return top_paths
 
 
-def process_one_instance(builder, model, instance, path_cache, update=True, dropout=0.0, x_y_vectors=None,
-                         num_hidden_layers=0):
+def process_one_instance(builder, model, model_parameters, instance, path_cache, update=True, dropout=0.0,
+                         x_y_vectors=None, num_hidden_layers=0):
     '''
     Return the LSTM output vector of a single term-pair - the average path embedding
     :param builder: the LSTM builder
     :param model: the LSTM model
+    :param model_parameters: the model parameters
     :param instance: a Counter object with paths
     :param path_cache: the cache for path embeddings
     :param update: whether to update the lemma embeddings
@@ -194,19 +198,19 @@ def process_one_instance(builder, model, instance, path_cache, update=True, drop
     :param num_hidden_layers The number of hidden layers for the term-pair classification network
     :return: the LSTM output vector of a single term-pair
     '''
-    W1 = parameter(model['W1'])
-    b1 = parameter(model['b1'])
+    W1 = parameter(model_parameters['W1'])
+    b1 = parameter(model_parameters['b1'])
     W2 = None
     b2 = None
 
     if num_hidden_layers == 1:
-        W2 = parameter(model['W2'])
-        b2 = parameter(model['b2'])
+        W2 = parameter(model_parameters['W2'])
+        b2 = parameter(model_parameters['b2'])
 
-    lemma_lookup = model['lemma_lookup']
-    pos_lookup = model['pos_lookup']
-    dep_lookup = model['dep_lookup']
-    dir_lookup = model['dir_lookup']
+    lemma_lookup = model_parameters['lemma_lookup']
+    pos_lookup = model_parameters['pos_lookup']
+    dep_lookup = model_parameters['dep_lookup']
+    dir_lookup = model_parameters['dir_lookup']
 
     # Use the LSTM output vector and feed it to the MLP
 
@@ -294,12 +298,13 @@ def word_dropout(lookup_table, word, rate, update=True):
     return lookup(lookup_table, new_word, update)
 
 
-def train(builder, model, X_train, y_train, nepochs, alpha=0.01, update=True, dropout=0.0, x_y_vectors=None,
-          num_hidden_layers=0):
+def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.01, update=True, dropout=0.0,
+          x_y_vectors=None, num_hidden_layers=0):
     '''
     Train the LSTM
     :param builder: the LSTM builder
     :param model: LSTM RNN model
+    :param model_parameters: the model parameters
     :param X_train: the train instances
     :param y_train: the train labels
     :param nepochs: number of epochs
@@ -328,8 +333,8 @@ def train(builder, model, X_train, y_train, nepochs, alpha=0.01, update=True, dr
             renew_cg()
 
             loss = esum([-log(pick(
-                process_one_instance(builder, model, X_train[batch_indices[i]], path_cache, update, dropout,
-                                     x_y_vectors=x_y_vectors[batch_indices[i]] if x_y_vectors is not None else None,
+                process_one_instance(builder, model, model_parameters, X_train[batch_indices[i]], path_cache, update,
+                                     dropout, x_y_vectors=x_y_vectors[batch_indices[i]] if x_y_vectors is not None else None,
                                      num_hidden_layers=num_hidden_layers),
                 y_train[batch_indices[i]])) for i in range(minibatch_size)])
             total_loss += loss.value() # forward computation
@@ -374,28 +379,33 @@ def create_computation_graph(num_lemmas, num_pos, num_dep, num_directions, num_r
     #  'the optimal size of the hidden layer is usually between the size of the input and size of the output layers'
     hidden_dim = int((network_input + num_relations) / 2)
 
+    model_parameters = {}
+
     if num_hidden_layers == 0:
-        model.add_parameters('W1', (num_relations, network_input))
-        model.add_parameters('b1', (num_relations, 1))
+        model_parameters['W1'] = model.add_parameters((num_relations, network_input))
+        model_parameters['b1'] = model.add_parameters((num_relations, 1))
+
     elif num_hidden_layers == 1:
-        model.add_parameters('W1', (hidden_dim, network_input))
-        model.add_parameters('b1', (hidden_dim, 1))
-        model.add_parameters('W2', (num_relations, hidden_dim))
-        model.add_parameters('b2', (num_relations, 1))
+
+        model_parameters['W1'] = model.add_parameters((hidden_dim, network_input))
+        model_parameters['b1'] = model.add_parameters((hidden_dim, 1))
+        model_parameters['W2'] = model.add_parameters((num_relations, hidden_dim))
+        model_parameters['b2'] = model.add_parameters((num_relations, 1))
+
     else:
         raise ValueError('Only 0 or 1 hidden layers are supported')
 
-    model.add_lookup_parameters('lemma_lookup', (num_lemmas, lemma_dimension))
+    model_parameters['lemma_lookup'] = model.add_lookup_parameters((num_lemmas, lemma_dimension))
 
     # Pre-trained word embeddings
     if wv is not None:
-        model['lemma_lookup'].init_from_array(wv)
+        model_parameters['lemma_lookup'].init_from_array(wv)
 
-    model.add_lookup_parameters('pos_lookup', (num_pos, POS_DIM))
-    model.add_lookup_parameters('dep_lookup', (num_dep, DEP_DIM))
-    model.add_lookup_parameters('dir_lookup', (num_directions, DIR_DIM))
+    model_parameters['pos_lookup'] = model.add_lookup_parameters((num_pos, POS_DIM))
+    model_parameters['dep_lookup'] = model.add_lookup_parameters((num_dep, DEP_DIM))
+    model_parameters['dir_lookup'] = model.add_lookup_parameters((num_directions, DIR_DIM))
 
-    return builder, model
+    return builder, model, model_parameters
 
 
 def load_model(model_file_prefix):

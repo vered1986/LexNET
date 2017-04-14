@@ -1,8 +1,10 @@
 import sys
-sys.argv.insert(1, '--cnn-mem')
-sys.argv.insert(2, '8192')
-sys.argv.insert(3, '--cnn-seed')
-sys.argv.insert(4, '3016748844')
+sys.argv.insert(1, '--dynet-gpus')
+sys.argv.insert(2, '1')
+sys.argv.insert(3, '--dynet-mem')
+sys.argv.insert(4, '8192')
+sys.argv.insert(5, '--dynet-seed')
+sys.argv.insert(6, '3016748844') # Change to any seed you'd like
 
 sys.path.append('../common/')
 
@@ -19,11 +21,11 @@ EMBEDDINGS_DIM = 50
 def main():
 
     # The LSTM-based integrated pattern-based and distributional method for multiclass semantic relations classification
-    corpus_prefix = sys.argv[5]
-    dataset_prefix = sys.argv[6]
-    model_prefix_file = sys.argv[7]
-    embeddings_file = sys.argv[8]
-    num_hidden_layers = int(sys.argv[9])
+    corpus_prefix = sys.argv[7]
+    dataset_prefix = sys.argv[8]
+    model_prefix_file = sys.argv[9]
+    embeddings_file = sys.argv[10]
+    num_hidden_layers = int(sys.argv[11])
 
     np.random.seed(133)
 
