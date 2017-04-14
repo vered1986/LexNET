@@ -29,7 +29,7 @@ def main():
 
     # Load the phrase pair files
     with codecs.open(vocabulary_file, 'r', 'utf-8') as f_in:
-        vocabulary = set([line.strip().split('\t')[1] for line in f_in])
+        vocabulary = set([line.strip() for line in f_in])
 
     with codecs.open(wiki_file, 'r', 'utf-8') as f_in:
         with codecs.open(out_file, 'w', 'utf-8') as f_out:
@@ -64,7 +64,11 @@ def parse_sentence(sent, vocabulary):
     # Get all term indices
     indices = [(token.orth_, sent[i:i+1], i, i) for i, token in enumerate(sent)
                if len(token.orth_) > 2 and token.orth_ in vocabulary]
-    indices.extend([(np.orth_, np, np.start, np.end) for np in sent.doc.noun_chunks if np.orth_ in vocabulary])
+
+    # Add noun chunks for the current sentence
+    # Don't include noun chunks with only one word - these are nouns already included
+    indices.extend([(np.orth_, np, np.start, np.end) for np in sent.doc.noun_chunks
+                    if sent.start <= np.start < np.end - 1 < sent.end and np.orth_ in vocabulary])
 
     tokens = [(x[0], x[1], y[0], y[1]) for x in indices for y in indices if x[3] < y[2]]
 
@@ -181,7 +185,7 @@ def check_direction(lch, hs, f_dir):
 
 def get_satellite_links(path):
     """
-    Add the "setallites" - single links not already contained in the dependency path added on either side of each noun
+    Add the "satellites" - single links not already contained in the dependency path added on either side of each noun
     :param x: the X token
     :param y: the Y token
     :param hx: X's head tokens
@@ -204,16 +208,18 @@ def get_satellite_links(path):
     y_index = y_tokens.idx
 
     for child, idx in set_xs:
-        if idx < x_index:
-            paths.append((child, x_tokens, None, hx, lch, hy, None, y_tokens, None))
-        else:
-            paths.append((None, x_tokens, child, hx, lch, hy, None, y_tokens, None))
+        if child.tag_ != 'PUNCT' and len(child.string.strip()) > 1:
+            if idx < x_index:
+                paths.append((child, x_tokens, None, hx, lch, hy, None, y_tokens, None))
+            else:
+                paths.append((None, x_tokens, child, hx, lch, hy, None, y_tokens, None))
 
     for child, idx in set_ys:
-        if idx < y_index:
-            paths.append((None, x_tokens, None, hx, lch, hy, child, y_tokens, None))
-        else:
-            paths.append((None, x_tokens, None, hx, lch, hy, None, y_tokens, child))
+        if child.tag_ != 'PUNCT' and len(child.string.strip()) > 1:
+            if idx < y_index:
+                paths.append((None, x_tokens, None, hx, lch, hy, child, y_tokens, None))
+            else:
+                paths.append((None, x_tokens, None, hx, lch, hy, None, y_tokens, child))
 
     return paths
 
