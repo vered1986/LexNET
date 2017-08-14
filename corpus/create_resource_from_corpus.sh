@@ -52,12 +52,14 @@ do
 done
 wait
 
-cat id_triplet_file_* > id_triplet_file_temp;
+cat id_triplet_file_a* > id_triplet_file_temp;
+rm id_triplet_file_a*;
 
-for x in {0..4}
-do
-( gawk -F $'\t' '{ if($1%5==$x) {a[$1][$2][$3]+=$4; } } END {for (i in a) for (j in a[i]) for (k in a[i][j]) print i, j, k, a[i][j][k]}' id_triplet_file_temp > id_triplet_file_$x ) &
-done
+awk -F $'\t' 'BEGIN { OFS = FS } { if($1 % 5 == 0) {a[$1][$2][$3]+=$4; } } END {for (i in a) for (j in a[i]) for (k in a[i][j]) print i, j, k, a[i][j][k]}' id_triplet_file_temp > id_triplet_file_0 &
+awk -F $'\t' 'BEGIN { OFS = FS } { if($1 % 5 == 1) {a[$1][$2][$3]+=$4; } } END {for (i in a) for (j in a[i]) for (k in a[i][j]) print i, j, k, a[i][j][k]}' id_triplet_file_temp > id_triplet_file_1 &
+awk -F $'\t' 'BEGIN { OFS = FS } { if($1 % 5 == 2) {a[$1][$2][$3]+=$4; } } END {for (i in a) for (j in a[i]) for (k in a[i][j]) print i, j, k, a[i][j][k]}' id_triplet_file_temp > id_triplet_file_2 &
+awk -F $'\t' 'BEGIN { OFS = FS } { if($1 % 5 == 3) {a[$1][$2][$3]+=$4; } } END {for (i in a) for (j in a[i]) for (k in a[i][j]) print i, j, k, a[i][j][k]}' id_triplet_file_temp > id_triplet_file_3 &
+awk -F $'\t' 'BEGIN { OFS = FS } { if($1 % 5 == 4) {a[$1][$2][$3]+=$4; } } END {for (i in a) for (j in a[i]) for (k in a[i][j]) print i, j, k, a[i][j][k]}' id_triplet_file_temp > id_triplet_file_4 &
 wait
 
 cat id_triplet_file_* > id_triplet_file;

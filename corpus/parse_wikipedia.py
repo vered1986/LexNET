@@ -62,8 +62,8 @@ def parse_sentence(sent, vocabulary):
     """
 
     # Get all term indices
-    indices = [(token.orth_, sent[i:i+1], i, i) for i, token in enumerate(sent)
-               if len(token.orth_) > 2 and token.orth_ in vocabulary]
+    indices = [(token.lemma_, sent[i:i+1], i, i) for i, token in enumerate(sent)
+               if len(token.orth_) > 2 and token.lemma_ in vocabulary and token.pos_ in ['NOUN', 'VERB', 'ADJ']]
 
     # Add noun chunks for the current sentence
     # Don't include noun chunks with only one word - these are nouns already included
@@ -109,35 +109,46 @@ def shortest_path(path):
     hy = heads(y_token)
 
     # Get the lowest common head
-    i = -1
-    for i in xrange(min(len(hx), len(hy))):
-        if hx[i] is not hy[i]:
-            break
 
-    if i == -1:
+    # There could be several cases. For example, for x = parrot, y = bird:
 
-        if x_token in hy:
-            hy = hy[:hy.index(x_token)]
-            hx = []
-            lch = x_token
+    # 1. x is the head of y: "[parrot] and other [birds]"
+    if hx == [] and x_token in hy:
+        hy = hy[:hy.index(x_token)]
+        hx = []
+        lch = x_token
 
-        elif y_token in hx:
-            hx = hx[:hx.index(y_token)]
-            hy = []
-            lch = y_token
+    # 2. y is the head of x: "[birds] such as [parrots]"
+    elif hy == [] and y_token in hx:
+        hx = hx[:hx.index(y_token)]
+        hy = []
+        lch = y_token
 
-        else:
-            return None
+    elif len(hx) == 0 or len(hy) == 0:
+        return None
 
+    # 3. x and y have no common head - the first head in each list should be the sentence root, so
+    # this is possibly a parse error?
+    elif hy[0] != hx[0]:
+        return None
+
+    # 4. x and y are connected via a direct parent or have the exact same path to the root, as in "[parrot] is a [bird]"
+    elif hx == hy:
+        lch = hx[-1]
+        hx = hy = []
+
+    # 5. x and y have a different parent which is non-direct, as in "[parrot] is a member of the [bird] family".
+    # The head is the last item in the common sequence of both head lists.
     else:
-
-        if hx[i] == hy[i]:
-            i += 1
+        for i in xrange(min(len(hx), len(hy))):
+            # Now we've found the common ancestor in i-1
+            if hx[i] is not hy[i]:
+                break
 
         if len(hx) > i:
-            lch = hx[i]
+            lch = hx[i-1]
         elif len(hy) > i:
-            lch = hy[i]
+            lch = hy[i-1]
         else:
             return None
 
@@ -146,7 +157,6 @@ def shortest_path(path):
 
         # The path from the lowest common head to y
         hy = hy[i+1:]
-
 
     if lch and check_direction(lch, hx, lambda h: h.lefts):
         return None
