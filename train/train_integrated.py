@@ -2,7 +2,7 @@ import sys
 sys.argv.insert(1, '--dynet-gpus')
 sys.argv.insert(2, '1')
 sys.argv.insert(3, '--dynet-mem')
-sys.argv.insert(4, '8192')
+sys.argv.insert(4, '16384')
 sys.argv.insert(5, '--dynet-seed')
 sys.argv.insert(6, '3016748844') # Change to any seed you'd like
 
@@ -16,6 +16,7 @@ from knowledge_resource import KnowledgeResource
 from paths_lstm_classifier import PathLSTMClassifier
 
 EMBEDDINGS_DIM = 50
+MAX_PATHS_PER_PAIR = -1 # Set to K > 0 if you want to limit the number of path per pair (for memory reasons)
 
 
 def main():
@@ -165,15 +166,22 @@ def load_paths_and_word_vectors(corpus, dataset_keys, lemma_index):
     dep_index = defaultdict(count(0).next)
     dir_index = defaultdict(count(0).next)
 
-    dummy = pos_index['#UNKNOWN#']
-    dummy = dep_index['#UNKNOWN#']
-    dummy = dir_index['#UNKNOWN#']
+    _ = pos_index['#UNKNOWN#']
+    _ = dep_index['#UNKNOWN#']
+    _ = dir_index['#UNKNOWN#']
 
     # Vectorize tha paths
     keys = [(corpus.get_id_by_term(str(x)), corpus.get_id_by_term(str(y))) for (x, y) in dataset_keys]
+
+    string_paths = [get_paths(corpus, x_id, y_id).items() for (x_id, y_id) in keys]
+
+    # Limit number of paths
+    if MAX_PATHS_PER_PAIR > 0:
+        string_paths = [curr_paths[:MAX_PATHS_PER_PAIR] for curr_paths in string_paths]
+
     paths_x_to_y = [{ vectorize_path(path, lemma_index, pos_index, dep_index, dir_index) : count
-                      for path, count in get_paths(corpus, x_id, y_id).iteritems() }
-                    for (x_id, y_id) in keys]
+                      for path, count in curr_paths }
+                    for curr_paths in string_paths]
     paths = [ { p : c for p, c in paths_x_to_y[i].iteritems() if p is not None } for i in range(len(keys)) ]
 
     empty = [dataset_keys[i] for i, path_list in enumerate(paths) if len(path_list.keys()) == 0]
