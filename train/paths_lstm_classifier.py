@@ -16,6 +16,7 @@ DIR_DIM = 1
 
 EMPTY_PATH = ((0, 0, 0, 0),)
 LOSS_EPSILON = 0.01
+MINIBATCH_SIZE = 100
 
 
 class PathLSTMClassifier(BaseEstimator):
@@ -103,14 +104,14 @@ class PathLSTMClassifier(BaseEstimator):
         test_pred = []
 
         # Predict every 100 instances together
-        for chunk in xrange(0, len(X_test), 100):
+        for chunk in xrange(0, len(X_test), MINIBATCH_SIZE):
             renew_cg()
             path_cache = {}
             test_pred.extend([np.argmax(process_one_instance(
                 builder, model, model_parameters, path_set, path_cache, False, dropout=0.0,
                 x_y_vectors=x_y_vectors[chunk + i] if x_y_vectors is not None else None,
                 num_hidden_layers=self.num_hidden_layers).npvalue())
-                              for i, path_set in enumerate(X_test[chunk:chunk+100])])
+                              for i, path_set in enumerate(X_test[chunk:chunk+MINIBATCH_SIZE])])
 
         return test_pred
 
@@ -315,7 +316,7 @@ def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.0
     :param num_hidden_layers The number of hidden layers for the term-pair classification network
     '''
     trainer = AdamTrainer(model, alpha=alpha)
-    minibatch_size = min(100, len(y_train))
+    minibatch_size = min(MINIBATCH_SIZE, len(y_train))
     nminibatches = int(math.ceil(len(y_train) / minibatch_size))
     previous_loss = 1000
 
