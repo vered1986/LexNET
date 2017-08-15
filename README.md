@@ -29,5 +29,5 @@ To start using **LexNET**, read the [Quick Start](https://github.com/vered1986/L
 
 ### Notes:
 * To reproduce the results reported in the paper, please use [V1](https://github.com/vered1986/LexNET/tree/master).
-* The pre-processed corpus files are currently only available for V1. The V2 files are 53GB zipped. Contact me if you want them.
+* The pre-processed [corpus files](https://drive.google.com/file/d/0B0kBcFEBhcbha2N0Vm1FYW01Umc/view?usp=sharing) are available for V2 now as well!
 ***
