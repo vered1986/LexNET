@@ -399,8 +399,6 @@ def create_computation_graph(num_lemmas, num_pos, num_dep, num_directions, num_r
     # model.initial_state()
     network_input = LSTM_HIDDEN_DIM
 
-    print "NUM_LAYERS" , NUM_LAYERS, "dimensions" , lemma_dimension, POS_DIM, DEP_DIM, DIR_DIM, "network input", network_input
-    print model 
     builder = LSTMBuilder(NUM_LAYERS, lemma_dimension + POS_DIM + DEP_DIM + DIR_DIM, network_input, model)
 
     # Concatenate x and y
