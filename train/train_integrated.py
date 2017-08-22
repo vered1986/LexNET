@@ -1,10 +1,17 @@
 import sys
-sys.argv.insert(1, '--dynet-gpus')
-sys.argv.insert(2, '1')
-sys.argv.insert(3, '--dynet-mem')
-sys.argv.insert(4, '16384')
-sys.argv.insert(5, '--dynet-seed')
-sys.argv.insert(6, '3016748844') # Change to any seed you'd like
+import argparse
+
+ap=argparse.ArgumentParser()
+ap.add_argument("-g","--gpus", help="number of gpus to use [0,1],default=0",type=int,default=0,choices=[0,1])
+ap.add_argument("-m","--memory", help="set dynet memory, default 8192", default=8192)
+ap.add_argument("-s","--seed", help="dynet random seed, pick any integer you like, default=3016748844", default=3016748844)
+ap.add_argument("corpus_prefix", help="path to the corpus resource")
+ap.add_argument("dataset_prefix", help="path to the train/test/val/rel data")
+ap.add_argument("model_prefix_file", help="where to store the result")
+ap.add_argument("embeddings_file", help="path to word embeddings file")
+ap.add_argument("num_hidden_layers", help="number of hidden layers to use", type=int)
+
+args = ap.parse_args()
 
 sys.path.append('../common/')
 
@@ -16,30 +23,24 @@ from knowledge_resource import KnowledgeResource
 from paths_lstm_classifier import PathLSTMClassifier
 
 EMBEDDINGS_DIM = 50
-MAX_PATHS_PER_PAIR = -1 # Set to K > 0 if you want to limit the number of path per pair (for memory reasons)
 
 
 def main():
 
     # The LSTM-based integrated pattern-based and distributional method for multiclass semantic relations classification
-    corpus_prefix = sys.argv[7]
-    dataset_prefix = sys.argv[8]
-    model_prefix_file = sys.argv[9]
-    embeddings_file = sys.argv[10]
-    num_hidden_layers = int(sys.argv[11])
 
     np.random.seed(133)
 
     # Load the relations
-    with codecs.open(dataset_prefix + '/relations.txt', 'r', 'utf-8') as f_in:
+    with codecs.open(args.dataset_prefix + '/relations.txt', 'r', 'utf-8') as f_in:
         relations = [line.strip() for line in f_in]
         relation_index = { relation : i for i, relation in enumerate(relations) }
 
     # Load the datasets
     print 'Loading the dataset...'
-    train_set = load_dataset(dataset_prefix + '/train.tsv', relations)
-    val_set = load_dataset(dataset_prefix + '/val.tsv', relations)
-    test_set = load_dataset(dataset_prefix + '/test.tsv', relations)
+    train_set = load_dataset(args.dataset_prefix + '/train.tsv', relations)
+    val_set = load_dataset(args.dataset_prefix + '/val.tsv', relations)
+    test_set = load_dataset(args.dataset_prefix + '/test.tsv', relations)
     y_train = [relation_index[label] for label in train_set.values()]
     y_val = [relation_index[label] for label in val_set.values()]
     y_test = [relation_index[label] for label in test_set.values()]
@@ -48,7 +49,7 @@ def main():
 
     # Load the resource (processed corpus)
     print 'Loading the corpus...'
-    corpus = KnowledgeResource(corpus_prefix)
+    corpus = KnowledgeResource(args.corpus_prefix)
     print 'Done!'
 
     # Get the vocabulary
@@ -56,7 +57,7 @@ def main():
 
     # Load the word embeddings
     print 'Initializing word embeddings...'
-    word_vectors, word_index = load_embeddings(embeddings_file, vocabulary)
+    word_vectors, word_index = load_embeddings(args.embeddings_file, vocabulary)
     word_inverted_index = { i : w for w, i in word_index.iteritems() }
 
     # Load the paths and create the feature vectors
@@ -89,7 +90,7 @@ def main():
                                             num_dep=len(dep_index), num_directions=len(dir_index), n_epochs=5,
                                             num_relations=len(relations), lemma_embeddings=word_vectors,
                                             dropout=word_dropout_rate, alpha=alpha, use_xy_embeddings=True,
-                                            num_hidden_layers=num_hidden_layers)
+                                            num_hidden_layers=args.num_hidden_layers)
 
             print 'Training with learning rate = %f, dropout = %f...' % (alpha, word_dropout_rate)
             classifier.fit(X_train, y_train, x_y_vectors=x_y_vectors_train)
@@ -102,7 +103,7 @@ def main():
             models.append(classifier)
 
             # Save intermediate models
-            classifier.save_model(model_prefix_file + '.' + str(word_dropout_rate),
+            classifier.save_model(args.model_prefix_file + '.' + str(word_dropout_rate),
                                   [word_index, pos_index, dep_index, dir_index])
             descriptions.append('Learning rate = %f, dropout = %f' % (alpha, word_dropout_rate))
 
@@ -113,7 +114,7 @@ def main():
 
     # Save the best model to a file
     print 'Saving the model...'
-    classifier.save_model(model_prefix_file, [word_index, pos_index, dep_index, dir_index])
+    classifier.save_model(args.model_prefix_file, [word_index, pos_index, dep_index, dir_index])
 
     # Evaluate on the test set
     print 'Evaluation:'
@@ -122,14 +123,14 @@ def main():
     print 'Precision: %.3f, Recall: %.3f, F1: %.3f' % (precision, recall, f1)
 
     # Write the predictions to a file
-    output_predictions(model_prefix_file + '.predictions', relations, pred, test_set.keys(), y_test)
+    output_predictions(args.model_prefix_file + '.predictions', relations, pred, test_set.keys(), y_test)
 
     # Retrieve k-best scoring paths for each class
     all_paths = unique([path for path_list in dataset_instances for path in path_list])
     top_k = classifier.get_top_k_paths(all_paths, relation_index, 0.7)
 
     for i, relation in enumerate(relations):
-        with codecs.open(model_prefix_file + '.paths.' + relation, 'w', 'utf-8') as f_out:
+        with codecs.open(args.model_prefix_file + '.paths.' + relation, 'w', 'utf-8') as f_out:
             for path, score in top_k[i]:
                 path_str = '_'.join([reconstruct_edge(edge, word_inverted_index, pos_inverted_index,
                                                       dep_inverted_index, dir_inverted_index) for edge in path])
@@ -143,7 +144,17 @@ def get_vocabulary(corpus, dataset_keys):
     :param dataset_keys: the word pairs in the dataset
     :return: a set of distinct words appearing as x or y or in a path
     """
-    keys = [(corpus.get_id_by_term(str(x)), corpus.get_id_by_term(str(y))) for (x, y) in dataset_keys]
+    # check whether valid utf-8 -- GB
+    # keys = [(corpus.get_id_by_term(str(x)), corpus.get_id_by_term(str(y))) for (x, y) in dataset_keys]
+    keys = []
+    for (x,y) in dataset_keys :
+        try : 
+            x_id = corpus.get_id_by_term(x.encode("utf-8"))
+            y_id = corpus.get_id_by_term(y.encode("utf-8"))
+            keys.append((x_id,y_id))
+        except UnicodeEncodeError :
+            True
+
     path_lemmas = set([edge.split('/')[0]
                        for (x_id, y_id) in keys
                        for path in get_paths(corpus, x_id, y_id).keys()
@@ -166,22 +177,18 @@ def load_paths_and_word_vectors(corpus, dataset_keys, lemma_index):
     dep_index = defaultdict(count(0).next)
     dir_index = defaultdict(count(0).next)
 
-    _ = pos_index['#UNKNOWN#']
-    _ = dep_index['#UNKNOWN#']
-    _ = dir_index['#UNKNOWN#']
+    dummy = pos_index['#UNKNOWN#']
+    dummy = dep_index['#UNKNOWN#']
+    dummy = dir_index['#UNKNOWN#']
 
     # Vectorize tha paths
-    keys = [(corpus.get_id_by_term(str(x)), corpus.get_id_by_term(str(y))) for (x, y) in dataset_keys]
-
-    string_paths = [get_paths(corpus, x_id, y_id).items() for (x_id, y_id) in keys]
-
-    # Limit number of paths
-    if MAX_PATHS_PER_PAIR > 0:
-        string_paths = [curr_paths[:MAX_PATHS_PER_PAIR] for curr_paths in string_paths]
+    # check for valid utf8 GB
+    # keys = [(corpus.get_id_by_term(str(x)), corpus.get_id_by_term(str(y))) for (x, y) in dataset_keys]
+    keys = [(corpus.get_id_by_term(x.encode("utf-8")), corpus.get_id_by_term(y.encode("utf-8"))) for (x, y) in dataset_keys]
 
     paths_x_to_y = [{ vectorize_path(path, lemma_index, pos_index, dep_index, dir_index) : count
-                      for path, count in curr_paths }
-                    for curr_paths in string_paths]
+                      for path, count in get_paths(corpus, x_id, y_id).iteritems() }
+                    for (x_id, y_id) in keys]
     paths = [ { p : c for p, c in paths_x_to_y[i].iteritems() if p is not None } for i in range(len(keys)) ]
 
     empty = [dataset_keys[i] for i, path_list in enumerate(paths) if len(path_list.keys()) == 0]

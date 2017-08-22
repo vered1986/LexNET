@@ -1,9 +1,28 @@
 import math
 import json
+from __main__ import args
 
-import _dynet
-from _dynet import *
+if (args.gpus == 0) :
+    import _dynet
+    from _dynet import *
+    # Declare a DynetParams object
+    dyparams = DynetParams()
+    dyparams.set_mem(args.memory)
+    dyparams.set_random_seed(args.seed)
+    # Initialize with the given parameters
+    dyparams.init() # or init_from_params(dyparams)
 
+else :
+    import _gdynet
+    from _gdynet import *
+    # Declare a DynetParams object
+    dyparams = DynetParams()
+    dyparams.set_mem(args.memory)
+    dyparams.set_random_seed(args.seed)
+    dyparams.set_requested_gpus(args.gpus)
+    # Initialize with the given parameters
+    dyparams.init() # or init_from_params(dyparams)
+	
 from lstm_common import *
 from sklearn.base import BaseEstimator
 
@@ -16,7 +35,6 @@ DIR_DIM = 1
 
 EMPTY_PATH = ((0, 0, 0, 0),)
 LOSS_EPSILON = 0.01
-MINIBATCH_SIZE = 100
 
 
 class PathLSTMClassifier(BaseEstimator):
@@ -104,14 +122,14 @@ class PathLSTMClassifier(BaseEstimator):
         test_pred = []
 
         # Predict every 100 instances together
-        for chunk in xrange(0, len(X_test), MINIBATCH_SIZE):
+        for chunk in xrange(0, len(X_test), 100):
             renew_cg()
             path_cache = {}
             test_pred.extend([np.argmax(process_one_instance(
                 builder, model, model_parameters, path_set, path_cache, False, dropout=0.0,
                 x_y_vectors=x_y_vectors[chunk + i] if x_y_vectors is not None else None,
                 num_hidden_layers=self.num_hidden_layers).npvalue())
-                              for i, path_set in enumerate(X_test[chunk:chunk+MINIBATCH_SIZE])])
+                              for i, path_set in enumerate(X_test[chunk:chunk+100])])
 
         return test_pred
 
@@ -162,7 +180,10 @@ class PathLSTMClassifier(BaseEstimator):
             path_embedding = get_path_embedding(builder, lemma_lookup, pos_lookup, dep_lookup, dir_lookup, path)
 
             if self.use_xy_embeddings:
-                zero_word = _dynet.inputVector([0.0] * self.lemma_embeddings_dim)
+                if (args.gpus == 0 ) :
+                    zero_word = _dynet.inputVector([0.0] * self.lemma_embeddings_dim)
+                else :
+                    zero_word = _gdynet.inputVector([0.0] * self.lemma_embeddings_dim)
                 path_embedding = concatenate([zero_word, path_embedding, zero_word])
 
             h = W1 * path_embedding + b1
@@ -316,7 +337,7 @@ def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.0
     :param num_hidden_layers The number of hidden layers for the term-pair classification network
     '''
     trainer = AdamTrainer(model, alpha=alpha)
-    minibatch_size = min(MINIBATCH_SIZE, len(y_train))
+    minibatch_size = min(100, len(y_train))
     nminibatches = int(math.ceil(len(y_train) / minibatch_size))
     previous_loss = 1000
 
@@ -342,7 +363,10 @@ def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.0
             loss.backward()
             trainer.update()
 
-        trainer.update_epoch()
+ 	# deprecated http://dynet.readthedocs.io/en/latest/python_ref.html#optimizers GB
+	# and requires an argument (would be epoch i guess...)
+        # trainer.update_epoch()
+        trainer.update()
         total_loss /= len(y_train)
         print 'Epoch', (epoch + 1), '/', nepochs, 'Loss =', total_loss
 
@@ -368,9 +392,15 @@ def create_computation_graph(num_lemmas, num_pos, num_dep, num_directions, num_r
     :param lemma_dimension The dimension of the lemma embeddings
     :return:
     '''
-    model = Model()
+    # model = Model() -- gives error? tried to fix by looking at dynet tutorial examples -- GB
+    # initialize()
+    renew_cg()
+    model = ParameterCollection()
+    # model.initial_state()
     network_input = LSTM_HIDDEN_DIM
 
+    print "NUM_LAYERS" , NUM_LAYERS, "dimensions" , lemma_dimension, POS_DIM, DEP_DIM, DIR_DIM, "network input", network_input
+    print model 
     builder = LSTMBuilder(NUM_LAYERS, lemma_dimension + POS_DIM + DEP_DIM + DIR_DIM, network_input, model)
 
     # Concatenate x and y
