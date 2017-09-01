@@ -2,26 +2,21 @@ import math
 import json
 from __main__ import args
 
-if (args.gpus == 0) :
-    import _dynet
-    from _dynet import *
-    # Declare a DynetParams object
-    dyparams = DynetParams()
-    dyparams.set_mem(args.memory)
-    dyparams.set_random_seed(args.seed)
-    # Initialize with the given parameters
-    dyparams.init() # or init_from_params(dyparams)
+# Support GPU, following change https://github.com/vered1986/LexNET/pull/2 from @gossebouma
+# Use CPU
+if args.gpus == 0:
+    import _dynet as dy
+    dyparams = dy.DynetParams()
 
-else :
-    import _gdynet
-    from _gdynet import *
-    # Declare a DynetParams object
-    dyparams = DynetParams()
-    dyparams.set_mem(args.memory)
-    dyparams.set_random_seed(args.seed)
+# Use GPU
+else:
+    import _gdynet as dy
+    dyparams = dy.DynetParams()
     dyparams.set_requested_gpus(args.gpus)
-    # Initialize with the given parameters
-    dyparams.init() # or init_from_params(dyparams)
+
+dyparams.set_mem(args.memory)
+dyparams.set_random_seed(args.seed)
+dyparams.init()
 	
 from lstm_common import *
 from sklearn.base import BaseEstimator
@@ -34,7 +29,7 @@ DEP_DIM = 5
 DIR_DIM = 1
 
 EMPTY_PATH = ((0, 0, 0, 0),)
-LOSS_EPSILON = 0.01
+LOSS_EPSILON = 0.0 # 0.01
 MINIBATCH_SIZE = 100
 
 
@@ -124,10 +119,10 @@ class PathLSTMClassifier(BaseEstimator):
 
         # Predict every 100 instances together
         for chunk in xrange(0, len(X_test), MINIBATCH_SIZE):
-            renew_cg()
+            dy.renew_cg()
             path_cache = {}
             test_pred.extend([np.argmax(process_one_instance(
-                builder, model, model_parameters, path_set, path_cache, False, dropout=0.0,
+                builder, model, model_parameters, path_set, path_cache, self.update, dropout=0.0,
                 x_y_vectors=x_y_vectors[chunk + i] if x_y_vectors is not None else None,
                 num_hidden_layers=self.num_hidden_layers).npvalue())
                               for i, path_set in enumerate(X_test[chunk:chunk+MINIBATCH_SIZE])])
@@ -141,10 +136,10 @@ class PathLSTMClassifier(BaseEstimator):
         model = self.model
         builder = self.builder
 
-        renew_cg()
+        dy.renew_cg()
 
         path_cache = {}
-        test_pred = [process_one_instance(builder, model, path_set, path_cache, False, dropout=0.0,
+        test_pred = [process_one_instance(builder, model, path_set, path_cache, self.update, dropout=0.0,
                                           x_y_vectors=x_y_vectors[i] if x_y_vectors is not None else None,
                                           num_hidden_layers=self.num_hidden_layers).npvalue()
                      for i, path_set in enumerate(X_test)]
@@ -168,31 +163,28 @@ class PathLSTMClassifier(BaseEstimator):
         for i, path in enumerate(all_paths):
 
             if i % 1000 == 0:
-                cg = renew_cg()
-                W1 = parameter(model_parameters['W1'])
-                b1 = parameter(model_parameters['b1'])
+                cg = dy.renew_cg()
+                W1 = dy.parameter(model_parameters['W1'])
+                b1 = dy.parameter(model_parameters['b1'])
                 W2 = None
                 b2 = None
 
                 if self.num_hidden_layers == 1:
-                    W2 = parameter(model_parameters['W2'])
-                    b2 = parameter(model_parameters['b2'])
+                    W2 = dy.parameter(model_parameters['W2'])
+                    b2 = dy.parameter(model_parameters['b2'])
 
             path_embedding = get_path_embedding(builder, lemma_lookup, pos_lookup, dep_lookup, dir_lookup, path)
 
             if self.use_xy_embeddings:
-                if (args.gpus == 0 ) :
-                    zero_word = _dynet.inputVector([0.0] * self.lemma_embeddings_dim)
-                else :
-                    zero_word = _gdynet.inputVector([0.0] * self.lemma_embeddings_dim)
-                path_embedding = concatenate([zero_word, path_embedding, zero_word])
+                zero_word = dy.inputVector([0.0] * self.lemma_embeddings_dim)
+                path_embedding = dy.concatenate([zero_word, path_embedding, zero_word])
 
             h = W1 * path_embedding + b1
 
             if self.num_hidden_layers == 1:
-                h = W2 * tanh(h) + b2
+                h = W2 * dy.tanh(h) + b2
 
-            path_score = softmax(h).npvalue()
+            path_score = dy.softmax(h).npvalue()
             path_scores.append(path_score)
 
         path_scores = np.vstack(path_scores)
@@ -221,14 +213,14 @@ def process_one_instance(builder, model, model_parameters, instance, path_cache,
     :param num_hidden_layers The number of hidden layers for the term-pair classification network
     :return: the LSTM output vector of a single term-pair
     '''
-    W1 = parameter(model_parameters['W1'])
-    b1 = parameter(model_parameters['b1'])
+    W1 = dy.parameter(model_parameters['W1'])
+    b1 = dy.parameter(model_parameters['b1'])
     W2 = None
     b2 = None
 
     if num_hidden_layers == 1:
-        W2 = parameter(model_parameters['W2'])
-        b2 = parameter(model_parameters['b2'])
+        W2 = dy.parameter(model_parameters['W2'])
+        b2 = dy.parameter(model_parameters['b2'])
 
     lemma_lookup = model_parameters['lemma_lookup']
     pos_lookup = model_parameters['pos_lookup']
@@ -248,19 +240,19 @@ def process_one_instance(builder, model, model_parameters, instance, path_cache,
     path_embbedings = [get_path_embedding_from_cache(path_cache, builder, lemma_lookup, pos_lookup, dep_lookup,
                                                      dir_lookup, path, update, dropout) * count
                        for path, count in instance.iteritems()]
-    input_vec = esum(path_embbedings) * (1.0 / num_paths)
+    input_vec = dy.esum(path_embbedings) * (1.0 / num_paths)
 
     # Concatenate x and y embeddings
     if x_y_vectors is not None:
-        x_vector, y_vector = lookup(lemma_lookup, x_y_vectors[0]), lookup(lemma_lookup, x_y_vectors[1])
-        input_vec = concatenate([x_vector, input_vec, y_vector])
+        x_vector, y_vector = dy.lookup(lemma_lookup, x_y_vectors[0]), dy.lookup(lemma_lookup, x_y_vectors[1])
+        input_vec = dy.concatenate([x_vector, input_vec, y_vector])
 
     h = W1 * input_vec + b1
 
     if num_hidden_layers == 1:
-        h = W2 * tanh(h) + b2
+        h = W2 * dy.tanh(h) + b2
 
-    output = softmax(h)
+    output = dy.softmax(h)
 
     return output
 
@@ -301,7 +293,7 @@ def get_path_embedding(builder, lemma_lookup, pos_lookup, dep_lookup, dir_lookup
     '''
 
     # Concatenate the edge components to one vector
-    inputs = [concatenate([word_dropout(lemma_lookup, edge[0], drop, update),
+    inputs = [dy.concatenate([word_dropout(lemma_lookup, edge[0], drop, update),
                            word_dropout(pos_lookup, edge[1], drop),
                            word_dropout(dep_lookup, edge[2], drop),
                            word_dropout(dir_lookup, edge[3], drop)])
@@ -318,7 +310,7 @@ def word_dropout(lookup_table, word, rate, update=True):
     :return:
     '''
     new_word = np.random.choice([word, 0], size=1, p=[1 - rate, rate])[0]
-    return lookup(lookup_table, new_word, update)
+    return dy.lookup(lookup_table, new_word, update)
 
 
 def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.01, update=True, dropout=0.0,
@@ -337,7 +329,7 @@ def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.0
     :param x_y_vectors: the word vectors of x and y
     :param num_hidden_layers The number of hidden layers for the term-pair classification network
     '''
-    trainer = AdamTrainer(model, alpha=alpha)
+    trainer = dy.AdamTrainer(model, alpha=alpha)
     minibatch_size = min(MINIBATCH_SIZE, len(y_train))
     nminibatches = int(math.ceil(len(y_train) / minibatch_size))
     previous_loss = 1000
@@ -353,9 +345,9 @@ def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.0
             path_cache = {}
             batch_indices = epoch_indices[minibatch * minibatch_size:(minibatch + 1) * minibatch_size]
 
-            renew_cg()
+            dy.renew_cg()
 
-            loss = esum([-log(pick(
+            loss = dy.esum([-dy.log(dy.pick(
                 process_one_instance(builder, model, model_parameters, X_train[batch_indices[i]], path_cache, update,
                                      dropout, x_y_vectors=x_y_vectors[batch_indices[i]] if x_y_vectors is not None else None,
                                      num_hidden_layers=num_hidden_layers),
@@ -364,8 +356,8 @@ def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.0
             loss.backward()
             trainer.update()
 
- 	# deprecated http://dynet.readthedocs.io/en/latest/python_ref.html#optimizers GB
-	# and requires an argument (would be epoch i guess...)
+        # deprecated http://dynet.readthedocs.io/en/latest/python_ref.html#optimizers GB
+        # and requires an argument (would be epoch i guess...)
         # trainer.update_epoch()
         trainer.update()
         total_loss /= len(y_train)
@@ -394,13 +386,11 @@ def create_computation_graph(num_lemmas, num_pos, num_dep, num_directions, num_r
     :return:
     '''
     # model = Model() -- gives error? tried to fix by looking at dynet tutorial examples -- GB
-    # initialize()
-    renew_cg()
-    model = ParameterCollection()
-    # model.initial_state()
+    dy.renew_cg()
+    model = dy.ParameterCollection()
     network_input = LSTM_HIDDEN_DIM
 
-    builder = LSTMBuilder(NUM_LAYERS, lemma_dimension + POS_DIM + DEP_DIM + DIR_DIM, network_input, model)
+    builder = dy.LSTMBuilder(NUM_LAYERS, lemma_dimension + POS_DIM + DEP_DIM + DIR_DIM, network_input, model)
 
     # Concatenate x and y
     if use_xy_embeddings:
