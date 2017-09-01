@@ -2,7 +2,25 @@ import codecs
 import itertools
 
 import numpy as np
+
 np.random.seed(133)
+
+
+def get_id(corpus, key):
+    """
+    Get the corpus ID of a word
+    (handle utf-8 encoding errors, following change
+    https://github.com/vered1986/LexNET/pull/2 from @gossebouma)
+    :param corpus: the corpus' resource object
+    :param key: the word
+    :return: the ID of the word or -1 if not found
+    """
+    id = -1  # the index of the unknown word
+    try:
+        id = corpus.get_id_by_term(key.encode('utf-8'))
+    except UnicodeEncodeError:
+        pass
+    return id
 
 
 def vectorize_path(path, lemma_index, pos_index, dep_index, dir_index):
@@ -15,7 +33,7 @@ def vectorize_path(path, lemma_index, pos_index, dep_index, dir_index):
     :param dir_index: index to edge direction dictionary
     :return:
     """
-    path_edges = [vectorize_edge(edge, lemma_index , pos_index, dep_index, dir_index) for edge in path.split('_')]
+    path_edges = [vectorize_edge(edge, lemma_index, pos_index, dep_index, dir_index) for edge in path.split('_')]
 
     if None in path_edges:
         return None
@@ -69,8 +87,9 @@ def load_embeddings(file_name, vocabulary):
     wv = np.loadtxt(vectors)
 
     # Add the unknown words
-    word_set = set(words)
     unknown_vector = np.random.random_sample((wv.shape[1],))
+
+    word_set = set(words)
     unknown_words = list(set(vocabulary).difference(set(words)))
 
     # Create vectors for MWEs - sum of word embeddings, and OOV words
@@ -84,10 +103,10 @@ def load_embeddings(file_name, vocabulary):
     print 'Known lemmas:', len(vocabulary) - len(unknown_words), '/', len(vocabulary)
 
     # Normalize each row (word vector) in the matrix to sum-up to 1
-    row_norm = np.sum(np.abs(wv)**2, axis=-1)**(1./2)
+    row_norm = np.sum(np.abs(wv) ** 2, axis=-1) ** (1. / 2)
     wv /= row_norm[:, np.newaxis]
 
-    word_index = { w : i for i, w in enumerate(words) }
+    word_index = {w: i for i, w in enumerate(words)}
 
     return wv, word_index
 
@@ -100,7 +119,7 @@ def load_dataset(dataset_file, relations):
     """
     with codecs.open(dataset_file, 'r', 'utf-8') as f_in:
         dataset = [tuple(line.strip().split('\t')) for line in f_in]
-        dataset = { (x.lower(), y.lower()) : relation for (x, y, relation) in dataset if relation in relations }
+        dataset = {(x.lower(), y.lower()): relation for (x, y, relation) in dataset if relation in relations}
 
     return dataset
 
@@ -126,7 +145,7 @@ def get_paths(corpus, x, y):
     """
     x_to_y_paths = corpus.get_relations(x, y)
     y_to_x_paths = corpus.get_relations(y, x)
-    paths = { corpus.get_path_by_id(path) : count for (path, count) in x_to_y_paths.iteritems() }
-    paths.update({ corpus.get_path_by_id(path).replace('X/', '@@@').replace('Y/', 'X/').replace('@@@', 'Y/') : count
-                   for (path, count) in y_to_x_paths.iteritems() })
+    paths = {corpus.get_path_by_id(path): count for (path, count) in x_to_y_paths.iteritems()}
+    paths.update({corpus.get_path_by_id(path).replace('X/', '@@@').replace('Y/', 'X/').replace('@@@', 'Y/'): count
+                  for (path, count) in y_to_x_paths.iteritems()})
     return paths

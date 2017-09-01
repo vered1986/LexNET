@@ -1,15 +1,15 @@
 import sys
 import argparse
 
-ap=argparse.ArgumentParser()
-ap.add_argument("-g","--gpus", help="number of gpus to use [0,1],default=0",type=int,default=0,choices=[0,1])
-ap.add_argument("-m","--memory", help="set dynet memory, default 8192", default=8192)
-ap.add_argument("-s","--seed", help="dynet random seed, pick any integer you like, default=3016748844", default=3016748844)
-ap.add_argument("corpus_prefix", help="path to the corpus resource")
-ap.add_argument("dataset_prefix", help="path to the train/test/val/rel data")
-ap.add_argument("model_prefix_file", help="where to store the result")
-ap.add_argument("embeddings_file", help="path to word embeddings file")
-ap.add_argument("num_hidden_layers", help="number of hidden layers to use", type=int)
+ap = argparse.ArgumentParser()
+ap.add_argument('-g', '--gpus', help='number of gpus to use [0,1], default=0', type=int, default=0, choices=[0,1])
+ap.add_argument('-m', '--memory', help='set dynet memory, default 8192',  default=8192)
+ap.add_argument('-s', '--seed', help='dynet random seed, pick any integer you like, default=3016748844', default=3016748844)
+ap.add_argument('corpus_prefix', help='path to the corpus resource')
+ap.add_argument('dataset_prefix', help='path to the train/test/val/rel data')
+ap.add_argument('model_prefix_file', help='where to store the result')
+ap.add_argument('embeddings_file', help='path to word embeddings file')
+ap.add_argument('num_hidden_layers', help='number of hidden layers to use', type=int)
 
 args = ap.parse_args()
 
@@ -25,10 +25,8 @@ from paths_lstm_classifier import PathLSTMClassifier
 EMBEDDINGS_DIM = 50
 MAX_PATHS_PER_PAIR = -1 # Set to K > 0 if you want to limit the number of path per pair (for memory reasons)
 
+
 def main():
-
-    # The LSTM-based integrated pattern-based and distributional method for multiclass semantic relations classification
-
     np.random.seed(133)
 
     # Load the relations
@@ -138,39 +136,32 @@ def main():
 
 
 def get_vocabulary(corpus, dataset_keys):
-    """
+    '''
     Get all the words in the dataset and paths
     :param corpus: the corpus object
     :param dataset_keys: the word pairs in the dataset
     :return: a set of distinct words appearing as x or y or in a path
-    """
-    # check whether valid utf-8 -- GB
-    # keys = [(corpus.get_id_by_term(str(x)), corpus.get_id_by_term(str(y))) for (x, y) in dataset_keys]
-    keys = []
-    for (x,y) in dataset_keys :
-        try : 
-            x_id = corpus.get_id_by_term(x.encode("utf-8"))
-            y_id = corpus.get_id_by_term(y.encode("utf-8"))
-            keys.append((x_id,y_id))
-        except UnicodeEncodeError :
-            True
-
+    '''
+    keys = [(get_id(corpus, x), get_id(corpus, y)) for (x, y) in dataset_keys]
+    
     path_lemmas = set([edge.split('/')[0]
                        for (x_id, y_id) in keys
                        for path in get_paths(corpus, x_id, y_id).keys()
-                       for edge in path.split('_')])
+                       for edge in path.split('_')
+                       if x_id > 0 and y_id > 0])
+                       
     x_y_words = set([x for (x, y) in dataset_keys]).union([y for (x, y) in dataset_keys])
     return list(path_lemmas.union(x_y_words))
 
 
 def load_paths_and_word_vectors(corpus, dataset_keys, lemma_index):
-    """
+    '''
     Load the paths and the word vectors for this dataset
     :param corpus: the corpus object
     :param dataset_keys: the word pairs in the dataset
     :param word_index: the index of words for the word embeddings
     :return:
-    """
+    '''
 
     # Define the dictionaries
     pos_index = defaultdict(count(0).next)
@@ -184,7 +175,7 @@ def load_paths_and_word_vectors(corpus, dataset_keys, lemma_index):
     # Vectorize tha paths
     # check for valid utf8 GB
     # keys = [(corpus.get_id_by_term(str(x)), corpus.get_id_by_term(str(y))) for (x, y) in dataset_keys]
-    keys = [(corpus.get_id_by_term(x.encode("utf-8")), corpus.get_id_by_term(y.encode("utf-8"))) for (x, y) in dataset_keys]
+    keys = [(get_id(corpus, x), get_id(corpus, y)) for (x, y) in dataset_keys]
 
     string_paths = [get_paths(corpus, x_id, y_id).items() for (x_id, y_id) in keys]
  
