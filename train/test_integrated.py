@@ -1,10 +1,16 @@
 import sys
-sys.argv.insert(1, '--dynet-gpus')
-sys.argv.insert(2, '1')
-sys.argv.insert(3, '--dynet-mem')
-sys.argv.insert(4, '8192')
-sys.argv.insert(5, '--dynet-seed')
-sys.argv.insert(6, '3016748844') # Change to any seed you'd like
+import argparse
+
+ap = argparse.ArgumentParser()
+ap.add_argument('-g', '--gpus', help='number of gpus to use [0,1], default=0', type=int, default=0, choices=[0,1])
+ap.add_argument('-m', '--memory', help='set dynet memory, default 8192',  default=8192)
+ap.add_argument('-s', '--seed', help='dynet random seed, pick any integer you like, default=3016748844', default=3016748844)
+ap.add_argument('corpus_prefix', help='path to the corpus resource')
+ap.add_argument('dataset_prefix', help='path to the train/test/val/rel data')
+ap.add_argument('model_prefix_file', help='where to store the result')
+
+args = ap.parse_args()
+
 
 sys.path.append('../common')
 
@@ -17,28 +23,23 @@ EMBEDDINGS_DIM = 50
 
 def main():
 
-    # The LSTM-based integrated pattern-based and distributional method for multiclass semantic relations classification
-    corpus_prefix = sys.argv[7]
-    dataset_prefix = sys.argv[8]
-    model_file_prefix = sys.argv[9]
-
     # Load the relations
-    with codecs.open(dataset_prefix + '/relations.txt', 'r', 'utf-8') as f_in:
+    with codecs.open(args.dataset_prefix + '/relations.txt', 'r', 'utf-8') as f_in:
         relations = [line.strip() for line in f_in]
         relation_index = { relation : i for i, relation in enumerate(relations) }
 
     # Load the datasets
     print 'Loading the dataset...'
-    test_set = load_dataset(dataset_prefix + '/test.tsv', relations)
+    test_set = load_dataset(args.dataset_prefix + '/test.tsv', relations)
     y_test = [relation_index[label] for label in test_set.values()]
 
     # Load the resource (processed corpus)
     print 'Loading the corpus...'
-    corpus = KnowledgeResource(corpus_prefix)
+    corpus = KnowledgeResource(args.corpus_prefix)
     print 'Done!'
 
     # Load the pre-trained model file
-    classifier, word_index, pos_index, dep_index, dir_index = load_model(model_file_prefix)
+    classifier, word_index, pos_index, dep_index, dir_index = load_model(args.model_prefix_file)
 
     # Load the paths and create the feature vectors
     print 'Loading path files...'

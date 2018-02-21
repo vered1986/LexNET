@@ -5,11 +5,12 @@ ap = argparse.ArgumentParser()
 ap.add_argument('-g', '--gpus', help='number of gpus to use [0,1], default=0', type=int, default=0, choices=[0,1])
 ap.add_argument('-m', '--memory', help='set dynet memory, default 8192',  default=8192)
 ap.add_argument('-s', '--seed', help='dynet random seed, pick any integer you like, default=3016748844', default=3016748844)
+ap.add_argument('--num_hidden_layers', help='number of hidden layers to use', type=int, default=0)
+ap.add_argument('--num_epochs', help='number of epochs to train', type=int, default=5)
 ap.add_argument('corpus_prefix', help='path to the corpus resource')
 ap.add_argument('dataset_prefix', help='path to the train/test/val/rel data')
 ap.add_argument('model_prefix_file', help='where to store the result')
 ap.add_argument('embeddings_file', help='path to word embeddings file')
-ap.add_argument('num_hidden_layers', help='number of hidden layers to use', type=int)
 
 args = ap.parse_args()
 
@@ -75,7 +76,7 @@ def main():
 
     # Tune the hyper-parameters using the validation set
     alphas = [0.001]
-    word_dropout_rates = [0.0, 0.2, 0.4]
+    word_dropout_rates = [0.0] # [0.0, 0.2, 0.4]
     f1_results = []
     models = []
     descriptions = []
@@ -85,7 +86,8 @@ def main():
 
             # Create the classifier
             classifier = PathLSTMClassifier(num_lemmas=len(word_index), num_pos=len(pos_index),
-                                            num_dep=len(dep_index), num_directions=len(dir_index), n_epochs=5,
+                                            num_dep=len(dep_index), num_directions=len(dir_index),
+                                            n_epochs=args.num_epochs,
                                             num_relations=len(relations), lemma_embeddings=word_vectors,
                                             dropout=word_dropout_rate, alpha=alpha, use_xy_embeddings=True,
                                             num_hidden_layers=args.num_hidden_layers)
