@@ -37,7 +37,7 @@ class PathLSTMClassifier(BaseEstimator):
 
     def __init__(self, num_lemmas, num_pos, num_dep, num_directions=5, n_epochs=10, num_relations=2,
                  alpha=0.01, lemma_embeddings=None, dropout=0.0, use_xy_embeddings=False, num_hidden_layers=0):
-        ''''
+        """'
         Initialize the LSTM
         :param num_lemmas Number of distinct lemmas
         :param num_pos Number of distinct part of speech tags
@@ -50,7 +50,7 @@ class PathLSTMClassifier(BaseEstimator):
         :param dropout Dropout rate
         :param use_xy_embeddings Whether to concatenate x and y word embeddings to the network input
         :param num_hidden_layers The number of hidden layers for the term-pair classification network
-        '''
+        """
         self.n_epochs = n_epochs
         self.num_lemmas = num_lemmas
         self.num_pos = num_pos
@@ -80,18 +80,18 @@ class PathLSTMClassifier(BaseEstimator):
         print 'Done!'
 
     def fit(self, X_train, y_train, x_y_vectors=None):
-        '''
+        """
         Train the model
-        '''
+        """
         print 'Training the model...'
         train(self.builder, self.model, self.model_parameters, X_train, y_train, self.n_epochs, self.alpha, self.update,
               self.dropout, x_y_vectors, self.num_hidden_layers)
         print 'Done!'
 
     def save_model(self, output_prefix, dictionaries):
-        '''
+        """
         Save the trained model to a file
-        '''
+        """
         self.model.save(output_prefix + '.model')
 
         # Save the model parameter shapes
@@ -109,9 +109,9 @@ class PathLSTMClassifier(BaseEstimator):
             json.dump(dictionaries, f_out, indent=2)
 
     def predict(self, X_test, x_y_vectors=None):
-        '''
+        """
         Predict the classification of the test set
-        '''
+        """
         model = self.model
         model_parameters = self.model_parameters
         builder = self.builder
@@ -130,9 +130,9 @@ class PathLSTMClassifier(BaseEstimator):
         return test_pred
 
     def predict_with_score(self, X_test, x_y_vectors=None):
-        '''
+        """
         Predict the classification of the test set
-        '''
+        """
         model = self.model
         builder = self.builder
 
@@ -147,9 +147,9 @@ class PathLSTMClassifier(BaseEstimator):
         return [(np.argmax(vec), vec[np.argmax(vec)]) for vec in test_pred]
 
     def get_top_k_paths(self, all_paths, relation_index, threshold):
-        '''
+        """
         Get the top k scoring paths
-        '''
+        """
         builder = self.builder
         model = self.model
         model_parameters = self.model_parameters
@@ -184,7 +184,7 @@ class PathLSTMClassifier(BaseEstimator):
             if self.num_hidden_layers == 1:
                 h = W2 * dy.tanh(h) + b2
 
-            path_score = dy.softmax(h).npvalue()
+            path_score = dy.softmax(h).npvalue().T
             path_scores.append(path_score)
 
         path_scores = np.vstack(path_scores)
@@ -200,7 +200,7 @@ class PathLSTMClassifier(BaseEstimator):
 
 def process_one_instance(builder, model, model_parameters, instance, path_cache, update=True, dropout=0.0,
                          x_y_vectors=None, num_hidden_layers=0):
-    '''
+    """
     Return the LSTM output vector of a single term-pair - the average path embedding
     :param builder: the LSTM builder
     :param model: the LSTM model
@@ -212,7 +212,7 @@ def process_one_instance(builder, model, model_parameters, instance, path_cache,
     :param x_y_vectors: the current word vectors for x and y
     :param num_hidden_layers The number of hidden layers for the term-pair classification network
     :return: the LSTM output vector of a single term-pair
-    '''
+    """
     W1 = dy.parameter(model_parameters['W1'])
     b1 = dy.parameter(model_parameters['b1'])
     W2 = None
@@ -259,7 +259,7 @@ def process_one_instance(builder, model, model_parameters, instance, path_cache,
 
 def get_path_embedding_from_cache(cache, builder, lemma_lookup, pos_lookup, dep_lookup, dir_lookup, path,
                                   update=True, dropout=0.0):
-    '''
+    """
 
     :param cache: the cache for the path embeddings
     :param builder: the LSTM builder
@@ -271,7 +271,7 @@ def get_path_embedding_from_cache(cache, builder, lemma_lookup, pos_lookup, dep_
     :param update: whether to update the lemma embeddings
     :param dropout: the word drop out rate
     :return: the path embedding, computed by the LSTM or retrieved from the cache
-    '''
+    """
 
     if path not in cache:
         cache[path] = get_path_embedding(builder, lemma_lookup, pos_lookup, dep_lookup,
@@ -280,7 +280,7 @@ def get_path_embedding_from_cache(cache, builder, lemma_lookup, pos_lookup, dep_
 
 
 def get_path_embedding(builder, lemma_lookup, pos_lookup, dep_lookup, dir_lookup, path, update=True, drop=0.0):
-    '''
+    """
     Get a vector representing a path
     :param builder: the LSTM builder
     :param lemma_lookup: the lemma embeddings lookup table
@@ -290,7 +290,7 @@ def get_path_embedding(builder, lemma_lookup, pos_lookup, dep_lookup, dir_lookup
     :param path: sequence of edges
     :param update: whether to update the lemma embeddings
     :return: a vector representing a path
-    '''
+    """
 
     # Concatenate the edge components to one vector
     inputs = [dy.concatenate([word_dropout(lemma_lookup, edge[0], drop, update),
@@ -303,19 +303,19 @@ def get_path_embedding(builder, lemma_lookup, pos_lookup, dep_lookup, dir_lookup
 
 
 def word_dropout(lookup_table, word, rate, update=True):
-    '''
+    """
     Apply word dropout with dropout rate
     :param exp: expression vector
     :param rate: dropout rate
     :return:
-    '''
+    """
     new_word = np.random.choice([word, 0], size=1, p=[1 - rate, rate])[0]
     return dy.lookup(lookup_table, new_word, update)
 
 
 def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.01, update=True, dropout=0.0,
           x_y_vectors=None, num_hidden_layers=0):
-    '''
+    """
     Train the LSTM
     :param builder: the LSTM builder
     :param model: LSTM RNN model
@@ -328,7 +328,7 @@ def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.0
     :param dropout: dropout probability for all component embeddings
     :param x_y_vectors: the word vectors of x and y
     :param num_hidden_layers The number of hidden layers for the term-pair classification network
-    '''
+    """
     trainer = dy.AdamTrainer(model, alpha=alpha)
     minibatch_size = min(MINIBATCH_SIZE, len(y_train))
     nminibatches = int(math.ceil(len(y_train) / minibatch_size))
@@ -372,7 +372,7 @@ def train(builder, model, model_parameters, X_train, y_train, nepochs, alpha=0.0
 
 def create_computation_graph(num_lemmas, num_pos, num_dep, num_directions, num_relations,
                              wv=None, use_xy_embeddings=False, num_hidden_layers=0, lemma_dimension=50):
-    '''
+    """
     Initialize the model
     :param num_lemmas Number of distinct lemmas
     :param num_pos Number of distinct part of speech tags
@@ -384,7 +384,7 @@ def create_computation_graph(num_lemmas, num_pos, num_dep, num_directions, num_r
     :param num_hidden_layers The number of hidden layers for the term-pair classification network
     :param lemma_dimension The dimension of the lemma embeddings
     :return:
-    '''
+    """
     # model = Model() -- gives error? tried to fix by looking at dynet tutorial examples -- GB
     dy.renew_cg()
     model = dy.ParameterCollection()
@@ -429,9 +429,9 @@ def create_computation_graph(num_lemmas, num_pos, num_dep, num_directions, num_r
 
 
 def load_model(model_file_prefix):
-    '''
+    """
     Load the trained model from a file
-    '''
+    """
 
     # Load the parameters from the json file
     with open(model_file_prefix + '.params') as f_in:
@@ -443,7 +443,7 @@ def load_model(model_file_prefix):
                                     num_hidden_layers=params['num_hidden_layers'])
 
     # Load the model
-    classifier.model.load(model_file_prefix + '.model')
+    classifier.model.populate(model_file_prefix + '.model')
 
     # Load the dictionaries from the json file
     with open(model_file_prefix + '.dict') as f_in:
