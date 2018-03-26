@@ -28,6 +28,6 @@ To start using **LexNET**, read the [Quick Start](https://github.com/vered1986/L
 * Too many paths in parse_wikipedia (see issue [#2](https://github.com/vered1986/HypeNET/issues/2))
 
 ### Notes:
-* To reproduce the results reported in the paper, please use [V1](https://github.com/vered1986/LexNET/tree/master).
+* To reproduce the results reported in the paper, please use [V1](https://github.com/vered1986/LexNET/tree/v1).
 * The pre-processed [corpus files](https://drive.google.com/file/d/0B0kBcFEBhcbha2N0Vm1FYW01Umc/view?usp=sharing) are available for V2 now as well!
 ***
