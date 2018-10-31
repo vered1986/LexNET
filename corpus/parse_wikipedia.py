@@ -113,13 +113,13 @@ def shortest_path(path):
     # There could be several cases. For example, for x = parrot, y = bird:
 
     # 1. x is the head of y: "[parrot] and other [birds]"
-    if hx == [] and x_token in hy:
-        hy = hy[:hy.index(x_token)]
+    if x_token in hy:
+        hy = hy[hy.index(x_token)+1:]
         hx = []
         lch = x_token
 
     # 2. y is the head of x: "[birds] such as [parrots]"
-    elif hy == [] and y_token in hx:
+    elif y_token in hx:
         hx = hx[:hx.index(y_token)]
         hy = []
         lch = y_token
